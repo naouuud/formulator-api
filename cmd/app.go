@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
+	"github.com/naouuud/formulator-api/internal/users"
 )
 
 
@@ -33,9 +35,15 @@ func (this *App) mount() http.Handler {
 
 	// Middleware
 	// Routes
-	router.Get("/health", func(w http.ResponseWriter, r *http.Request ) {
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Health check!")
 		w.Write([]byte("All good!"))
 	})
+
+	// User
+	userHandler := users.NewHandler(users.NewService(repo.New(this.conn)))
+	router.Route("/user", func(r chi.Router) {
+		r.Get("/{id}", userHandler.GetUserById)
+	})	
 	return router
 }

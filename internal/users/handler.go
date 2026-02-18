@@ -3,6 +3,7 @@ package users
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -32,4 +33,32 @@ func (this *Handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(user)
+}
+
+type CreateUserDto struct {
+	ID string `json:"id"`
+	Username string `json:"username"`
+	FirstName string `json:"firstName"`
+	LastName string `json:"lastName"`
+}
+
+func (this *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var dto CreateUserDto
+	err := json.NewDecoder(r.Body).Decode(&dto)
+	if err != nil {
+		log.Printf("Error: %s", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Printf("createUserDto = %+v", dto)
+
+	err = this.service.CreateUser(r.Context(), dto)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrUserNotCreated):
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
 }

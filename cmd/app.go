@@ -44,6 +44,12 @@ func (this *App) mount() http.Handler {
 	userHandler := users.NewHandler(users.NewService(repo.New(this.conn)))
 	router.Route("/user", func(r chi.Router) {
 		r.Get("/{id}", userHandler.GetUserById)
-	})	
+		r.Post("/create", userHandler.CreateUser)
+	})
 	return router
 }
+
+// func myHandler(h http.Handler) http.Handler {
+// 	log.Printf("Handler value: %v", h)
+// 	return h
+// }

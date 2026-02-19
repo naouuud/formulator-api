@@ -5,13 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"math/rand"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
 )
 
 var ErrNotFound = errors.New("User not found")
-var ErrUserNotCreated = errors.New("User not created")
+var ErrUserNotCreated = errors.New("Failed to create user")
 var ErrUsernameExists = errors.New("Username already exists")
 
 type Service interface {
@@ -36,14 +38,15 @@ func (this *ServiceCt) GetUserById(ctx context.Context, id string) (repo.User, e
 		if errors.Is(err, sql.ErrNoRows) {
 			return repo.User{}, ErrNotFound
 		}
-		// handle other errors
+		logErr(err)
+		return repo.User{}, err
 	}
 	return user, err
 }
 
 func (this *ServiceCt) UsernameExists(ctx context.Context, username string) (int64, error) {
 	count, err := this.repo.UsernameExists(ctx, username)
-	if (err != nil) {
+	if err != nil {
 		logErr(err)
 		return -1, err
 	}
@@ -52,7 +55,7 @@ func (this *ServiceCt) UsernameExists(ctx context.Context, username string) (int
 
 func (this *ServiceCt) CreateUser(ctx context.Context, userDto CreateUserDto) error {
 	count, err := this.UsernameExists(ctx, userDto.Username)
-	if (err != nil) {
+	if err != nil {
 		logErr(err)
 		return err
 	}
@@ -79,13 +82,29 @@ func (this *ServiceCt) CreateUser(ctx context.Context, userDto CreateUserDto) er
 func (this *ServiceCt) CreateAnonUser(ctx context.Context) error {
 	id := uuid.New().String()
 	// Generate random int
+	src := rand.NewSource(100)
+	randInt := src.Int63()
 	userParams := repo.CreateUserParams{
 		ID:        id,
-		Username:  "anon", // append random int
+		Username:  "anon-" + strconv.FormatInt(randInt, 10),
 		FirstName: "",
 		LastName:  "",
 	}
-	err := this.repo.CreateUser(ctx, userParams)
+	count, err := this.UsernameExists(ctx, userParams.Username)
+	if err != nil {
+		logErr(err)
+		return err
+	}
+	for count > 0 {
+		randInt = src.Int63()
+		userParams.Username = "anon-" + strconv.FormatInt(randInt, 10)
+		count, err = this.UsernameExists(ctx, userParams.Username)
+		if err != nil {
+			logErr(err)
+			return err
+		}
+	}
+	err = this.repo.CreateUser(ctx, userParams)
 	if err != nil {
 		logErr(err)
 		return ErrUserNotCreated
@@ -95,5 +114,6 @@ func (this *ServiceCt) CreateAnonUser(ctx context.Context) error {
 }
 
 func logErr(err error) {
-	log.Printf("Service error: %s", err.Error())
+	log.Printf("User service error: %s", err.Error())
 }
+

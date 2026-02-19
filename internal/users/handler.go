@@ -71,7 +71,8 @@ func httpError(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	case ErrNotFound:
 		http.Error(w, err.Error(), http.StatusNotFound)
-	default: 
+	default:
 		http.Error(w, "Server error", http.StatusInternalServerError)
 	}
 }
+

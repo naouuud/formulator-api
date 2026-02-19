@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
+	"github.com/naouuud/formulator-api/internal/auth"
 	"github.com/naouuud/formulator-api/internal/users"
 )
 
@@ -40,6 +41,11 @@ func (this *App) mount() http.Handler {
 		w.Write([]byte("All good!"))
 	})
 
+	// Auth
+	authHandler := auth.NewHandler(auth.NewService(repo.New(this.conn)))
+	router.Route("/auth", func(r chi.Router) {
+		r.Get("/me", authHandler.Bootstrap)
+	})
 	// User
 	userHandler := users.NewHandler(users.NewService(repo.New(this.conn)))
 	router.Route("/user", func(r chi.Router) {

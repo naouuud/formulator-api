@@ -16,11 +16,13 @@ func main() {
 	// slogger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	// slog.SetDefault(slogger)
 	conn, err := pgx.Connect(ctx, config.dsn)
+	log.Println("Connected to database")
 	if err != nil {
 		// slogger.Error("Unable to connect to db", "error", err)
 		log.Panicf("Error connecting to database: %s", err)
 	}
-	defer conn.Close(ctx)
+	defer log.Println("Database connection closed")
+	defer conn.Close(ctx) 
 	app := App{
 		config: config,
 		conn: conn,

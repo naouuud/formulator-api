@@ -18,6 +18,7 @@ type Querier interface {
 	UpdateUserFirstName(ctx context.Context, arg UpdateUserFirstNameParams) error
 	UpdateUserLastName(ctx context.Context, arg UpdateUserLastNameParams) error
 	UpdateUserUsername(ctx context.Context, arg UpdateUserUsernameParams) error
+	UsernameExists(ctx context.Context, username string) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

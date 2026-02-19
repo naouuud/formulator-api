@@ -45,6 +45,7 @@ func (this *App) mount() http.Handler {
 	router.Route("/user", func(r chi.Router) {
 		r.Get("/{id}", userHandler.GetUserById)
 		r.Post("/create", userHandler.CreateUser)
+		r.Post("/createanon", userHandler.CreateAnonUser)
 	})
 	return router
 }

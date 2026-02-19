@@ -2,8 +2,6 @@ package users
 
 import (
 	"encoding/json"
-	"errors"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -23,11 +21,8 @@ func (this *Handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	user, err := this.service.GetUserById(r.Context(), idStr)
 	if err != nil {
-		switch  {
-		case errors.Is(err, ErrNotFound):
-			http.Error(w, ErrNotFound.Error(), http.StatusNotFound)
-			return
-		}
+		httpError(w, err)
+		return
 	}
 	// Response
 	w.Header().Set("Content-Type", "application/json")
@@ -36,10 +31,10 @@ func (this *Handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateUserDto struct {
-	ID string `json:"id"`
-	Username string `json:"username"`
+	ID        string `json:"id"`
+	Username  string `json:"username"`
 	FirstName string `json:"firstName"`
-	LastName string `json:"lastName"`
+	LastName  string `json:"lastName"`
 }
 
 func (this *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -47,18 +42,36 @@ func (this *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var dto CreateUserDto
 	err := json.NewDecoder(r.Body).Decode(&dto)
 	if err != nil {
-		log.Printf("Error: %s", err)
+		logErr(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Printf("createUserDto = %+v", dto)
+	// log.Printf("createUserDto = %+v", dto)
 
 	err = this.service.CreateUser(r.Context(), dto)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrUserNotCreated):
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+		httpError(w, err)
+		return
+	}
+}
+
+func (this *Handler) CreateAnonUser(w http.ResponseWriter, r *http.Request) {
+	err := this.service.CreateAnonUser(r.Context())
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+}
+
+func httpError(w http.ResponseWriter, err error) {
+	switch err {
+	case ErrUsernameExists:
+		http.Error(w, err.Error(), http.StatusConflict)
+	case ErrUserNotCreated:
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	case ErrNotFound:
+		http.Error(w, err.Error(), http.StatusNotFound)
+	default: 
+		http.Error(w, "Server error", http.StatusInternalServerError)
 	}
 }

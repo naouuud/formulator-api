@@ -122,3 +122,19 @@ func (q *Queries) UpdateUserUsername(ctx context.Context, arg UpdateUserUsername
 	_, err := q.db.Exec(ctx, updateUserUsername, arg.Username, arg.ID)
 	return err
 }
+
+const usernameExists = `-- name: UsernameExists :one
+SELECT 
+count(*) 
+FROM 
+users
+WHERE 
+username = $1
+`
+
+func (q *Queries) UsernameExists(ctx context.Context, username string) (int64, error) {
+	row := q.db.QueryRow(ctx, usernameExists, username)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}

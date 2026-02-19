@@ -47,6 +47,7 @@ func (this *Handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		roleStr = "anonymous"
+		log.Printf("Anon user created id = %s", idStr)
 		// Create new token
 		tokenStr, err = this.service.GenerateToken(idStr)
 		if err != nil {

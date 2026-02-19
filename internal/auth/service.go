@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"os"
 	"strconv"
 	"time"
 
@@ -35,7 +36,7 @@ func NewService(repo repo.Querier) Service {
 	}
 }
 
-var jwtKey = []byte("secret-key") // set in .env
+var jwtKey = []byte(os.Getenv("SECRET"))
 
 type Claims struct {
 	UserID string `json:"user_id"`
@@ -116,7 +117,6 @@ func (this *ServiceCt) CreateAnonUser(ctx context.Context) (id string, err error
 		logErr(err)
 		return id, ErrUserNotCreated
 	}
-	log.Printf("Anon user created with id = %s", id)
 	return id, err
 }
 

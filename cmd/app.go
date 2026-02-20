@@ -47,7 +47,7 @@ func (this *App) mount() http.Handler {
 		r.Get("/me", authHandler.Bootstrap)
 	})
 	// User
-	userHandler := users.NewHandler(users.NewService(repo.New(this.conn)))
+	userHandler := users.NewHandler(users.NewServiceCt(repo.New(this.conn)))
 	router.Route("/user", func(r chi.Router) {
 		r.Get("/{id}", userHandler.GetUserById)
 		r.Post("/create", userHandler.CreateUser)

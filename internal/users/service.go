@@ -22,17 +22,17 @@ type Service interface {
 	CreateAnonUser(ctx context.Context) error
 }
 
-type ServiceCt struct {
+type serviceCt struct {
 	repo repo.Querier
 }
 
-func NewService(repo repo.Querier) Service {
-	return &ServiceCt{
+func NewServiceCt(repo repo.Querier) Service {
+	return &serviceCt{
 		repo: repo,
 	}
 }
 
-func (this *ServiceCt) GetUserById(ctx context.Context, id string) (repo.User, error) {
+func (this *serviceCt) GetUserById(ctx context.Context, id string) (repo.User, error) {
 	user, err := this.repo.GetUserById(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -44,7 +44,7 @@ func (this *ServiceCt) GetUserById(ctx context.Context, id string) (repo.User, e
 	return user, err
 }
 
-func (this *ServiceCt) UsernameExists(ctx context.Context, username string) (int64, error) {
+func (this *serviceCt) UsernameExists(ctx context.Context, username string) (int64, error) {
 	count, err := this.repo.UsernameExists(ctx, username)
 	if err != nil {
 		logErr(err)
@@ -53,7 +53,7 @@ func (this *ServiceCt) UsernameExists(ctx context.Context, username string) (int
 	return count, err
 }
 
-func (this *ServiceCt) CreateUser(ctx context.Context, userDto CreateUserDto) error {
+func (this *serviceCt) CreateUser(ctx context.Context, userDto CreateUserDto) error {
 	count, err := this.UsernameExists(ctx, userDto.Username)
 	if err != nil {
 		logErr(err)
@@ -79,7 +79,7 @@ func (this *ServiceCt) CreateUser(ctx context.Context, userDto CreateUserDto) er
 	return err
 }
 
-func (this *ServiceCt) CreateAnonUser(ctx context.Context) error {
+func (this *serviceCt) CreateAnonUser(ctx context.Context) error {
 	id := uuid.New().String()
 	// Generate random int
 	src := rand.NewSource(100)

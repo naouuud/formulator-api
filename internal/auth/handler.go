@@ -28,8 +28,8 @@ func (this *Handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	tokenStr := extractToken(r)
 	var user *repo.User
 	var err error
-	var idStr = ""
-	var roleStr = ""
+	var idStr string
+	var roleStr string
 	// Validate token and check for existing user
 	if tokenStr != "" {
 		user, err = this.service.ValidateToken(r.Context(), tokenStr)

@@ -3,15 +3,18 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	ctx := context.Background()
+	godotenv.Load()
 	config := AppConfig{
 		port: ":8080",
-		dsn: "host=localhost port=5434 user=naoude password=6%71hiu& dbname=formulator sslmode=disable",
+		dsn: os.Getenv("GOOSE_DBSTRING"),
 	}
 	// slogger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	// slog.SetDefault(slogger)
@@ -37,7 +40,7 @@ func main() {
 	// router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 	// 	w.Write([]byte("Simple health check, all good!"))
 	// })
-	// _, err := pgx.Connect(context.Background(), "host=localhost port=5434 user=naoude password=6%71hiu& dbname=formulator sslmode=disable")
+	// _, err := pgx.Connect(context.Background(), os.Getenv("GOOSE_DBSTRING"))
 	// if err != nil {
 	// 	log.Fatal("Error connecting to db")
 	// }

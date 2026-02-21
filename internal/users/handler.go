@@ -7,17 +7,17 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type Handler struct {
+type handler struct {
 	service Service
 }
 
-func NewHandler(service Service) *Handler {
-	return &Handler{
+func NewHandler(service Service) *handler {
+	return &handler{
 		service: service,
 	}
 }
 
-func (this *Handler) GetUserById(w http.ResponseWriter, r *http.Request) {
+func (this *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	user, err := this.service.GetUserById(r.Context(), idStr)
 	if err != nil {
@@ -37,7 +37,7 @@ type CreateUserDto struct {
 	LastName  string `json:"lastName"`
 }
 
-func (this *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+func (this *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	var dto CreateUserDto
 	err := json.NewDecoder(r.Body).Decode(&dto)
@@ -55,13 +55,13 @@ func (this *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (this *Handler) CreateAnonUser(w http.ResponseWriter, r *http.Request) {
-	err := this.service.CreateAnonUser(r.Context())
-	if err != nil {
-		httpError(w, err)
-		return
-	}
-}
+// func (this *handler) CreateAnonUser(w http.ResponseWriter, r *http.Request) {
+// 	err := this.service.createAnonUser(r.Context())
+// 	if err != nil {
+// 		httpError(w, err)
+// 		return
+// 	}
+// }
 
 func httpError(w http.ResponseWriter, err error) {
 	switch err {
@@ -75,4 +75,3 @@ func httpError(w http.ResponseWriter, err error) {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 	}
 }
-

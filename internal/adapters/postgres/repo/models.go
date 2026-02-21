@@ -21,4 +21,5 @@ type User struct {
 	FirstName string             `json:"first_name"`
 	LastName  string             `json:"last_name"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Role      string             `json:"role"`
 }

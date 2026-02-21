@@ -8,37 +8,41 @@ import (
 	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
 )
 
-type Handler struct {
+type handler struct {
 	service Service
 }
 
-func NewHandler(service Service) *Handler {
-	return &Handler{
+func NewHandler(service Service) *handler {
+	return &handler{
 		service: service,
 	}
 }
 
 type AuthResp struct {
-	Id    string `json:"id"`
-	Token string `json:"token"`
-	Role  string `json:"role"`
+	Id    string       `json:"id"`
+	Token string       `json:"token"`
+	Forms []FormSchema `json:"forms"`
 }
 
-func (this *Handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
+func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	tokenStr := extractToken(r)
 	var user *repo.User
 	var err error
 	var idStr string
-	var roleStr string
+	var forms []FormSchema
 	// Validate token and check for existing user
 	if tokenStr != "" {
 		user, err = this.service.ValidateToken(r.Context(), tokenStr)
 		if user != nil && err == nil {
 			idStr = user.ID
-			roleStr = "registered"
+			forms, err = this.service.GetUserForms(r.Context(), idStr)
+			if err != nil {
+				httpError(w, err)
+				return
+			}
 		}
 	}
-	// If token validation or user fetch has failed
+	// If anything has failed (idStr still == "") create Anon user
 	if idStr == "" {
 		// Create anon user
 		idStr, err = this.service.CreateAnonUser(r.Context())
@@ -46,13 +50,18 @@ func (this *Handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 			httpError(w, err)
 			return
 		}
-		roleStr = "anonymous"
 		log.Printf("Anon user created id = %s", idStr)
 		// Create new token
 		tokenStr, err = this.service.GenerateToken(idStr)
 		if err != nil {
 			log.Println("Failed to generate token")
-			http.Error(w, "Failed to create token", http.StatusInternalServerError)
+			httpError(w, err)
+			return
+		}
+		// Create first form
+		forms, err = this.service.CreateFirstForm(r.Context(), idStr)
+		if err != nil {
+			httpError(w, err)
 			return
 		}
 		// Optional set cookie
@@ -61,7 +70,7 @@ func (this *Handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	resp := AuthResp{
 		Id:    idStr,
 		Token: tokenStr,
-		Role:  roleStr, // replace with User.Role column
+		Forms: forms,
 	}
 	// log.Printf("%+v", resp)
 	w.Header().Set("Content-Type", "application/json")

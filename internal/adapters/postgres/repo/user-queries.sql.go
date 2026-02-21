@@ -10,11 +10,12 @@ import (
 )
 
 const createUser = `-- name: CreateUser :exec
-INSERT INTO users (id, username, first_name, last_name) VALUES (
+INSERT INTO users (id, username, first_name, last_name, role) VALUES (
     $1,
     $2,
     $3,
-    $4
+    $4,
+    $5
 )
 `
 
@@ -23,6 +24,7 @@ type CreateUserParams struct {
 	Username  string `json:"username"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	Role      string `json:"role"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -31,6 +33,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.Username,
 		arg.FirstName,
 		arg.LastName,
+		arg.Role,
 	)
 	return err
 }
@@ -50,7 +53,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 
 const getUserById = `-- name: GetUserById :one
 SELECT 
-id, username, first_name, last_name, created_at 
+id, username, first_name, last_name, created_at, role 
 FROM users
 WHERE
 id = $1
@@ -65,6 +68,7 @@ func (q *Queries) GetUserById(ctx context.Context, id string) (User, error) {
 		&i.FirstName,
 		&i.LastName,
 		&i.CreatedAt,
+		&i.Role,
 	)
 	return i, err
 }
@@ -102,6 +106,24 @@ type UpdateUserLastNameParams struct {
 
 func (q *Queries) UpdateUserLastName(ctx context.Context, arg UpdateUserLastNameParams) error {
 	_, err := q.db.Exec(ctx, updateUserLastName, arg.LastName, arg.ID)
+	return err
+}
+
+const updateUserRole = `-- name: UpdateUserRole :exec
+UPDATE users
+SET 
+role = $1
+WHERE
+id = $2
+`
+
+type UpdateUserRoleParams struct {
+	Role string `json:"role"`
+	ID   string `json:"id"`
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error {
+	_, err := q.db.Exec(ctx, updateUserRole, arg.Role, arg.ID)
 	return err
 }
 

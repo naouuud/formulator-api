@@ -43,6 +43,39 @@ func (q *Queries) DeleteForm(ctx context.Context, id string) error {
 	return err
 }
 
+const getFormsByUserId = `-- name: GetFormsByUserId :many
+SELECT 
+id, user_id, form_schema, created_at
+FROM forms
+WHERE 
+user_id = $1
+`
+
+func (q *Queries) GetFormsByUserId(ctx context.Context, userID pgtype.Text) ([]Form, error) {
+	rows, err := q.db.Query(ctx, getFormsByUserId, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Form
+	for rows.Next() {
+		var i Form
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.FormSchema,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateFormSchema = `-- name: UpdateFormSchema :exec
 UPDATE forms
 SET
@@ -58,5 +91,23 @@ type UpdateFormSchemaParams struct {
 
 func (q *Queries) UpdateFormSchema(ctx context.Context, arg UpdateFormSchemaParams) error {
 	_, err := q.db.Exec(ctx, updateFormSchema, arg.FormSchema, arg.ID)
+	return err
+}
+
+const updateFormUserId = `-- name: UpdateFormUserId :exec
+UPDATE forms
+SET
+form_schema = $1
+WHERE
+id = $2
+`
+
+type UpdateFormUserIdParams struct {
+	FormSchema []byte `json:"form_schema"`
+	ID         string `json:"id"`
+}
+
+func (q *Queries) UpdateFormUserId(ctx context.Context, arg UpdateFormUserIdParams) error {
+	_, err := q.db.Exec(ctx, updateFormUserId, arg.FormSchema, arg.ID)
 	return err
 }

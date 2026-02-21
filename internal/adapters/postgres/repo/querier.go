@@ -6,6 +6,8 @@ package repo
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -13,10 +15,13 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeleteForm(ctx context.Context, id string) error
 	DeleteUser(ctx context.Context, id string) error
+	GetFormsByUserId(ctx context.Context, userID pgtype.Text) ([]Form, error)
 	GetUserById(ctx context.Context, id string) (User, error)
 	UpdateFormSchema(ctx context.Context, arg UpdateFormSchemaParams) error
+	UpdateFormUserId(ctx context.Context, arg UpdateFormUserIdParams) error
 	UpdateUserFirstName(ctx context.Context, arg UpdateUserFirstNameParams) error
 	UpdateUserLastName(ctx context.Context, arg UpdateUserLastNameParams) error
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error
 	UpdateUserUsername(ctx context.Context, arg UpdateUserUsernameParams) error
 	UsernameExists(ctx context.Context, username string) (int64, error)
 }

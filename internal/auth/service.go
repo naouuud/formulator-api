@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
+	"github.com/naouuud/formulator-api/internal/models"
 )
 
 var ErrTokenParse = errors.New("Error parsing token")
@@ -25,9 +26,9 @@ var ErrUserNotCreated = errors.New("Failed to create user")
 type Service interface {
 	GenerateToken(userID string) (string, error)
 	ValidateToken(ctx context.Context, tokenStr string) (*repo.User, error)
-	GetUserForms(ctx context.Context, userId string) ([]FormSchema, error)
+	GetFormsByUserId(ctx context.Context, userId string) ([]models.FormSchema, error)
 	CreateAnonUser(ctx context.Context) (string, error)
-	CreateFirstForm(ctx context.Context, userId string) ([]FormSchema, error)
+	CreateFirstForm(ctx context.Context, userId string) ([]models.FormSchema, error)
 }
 
 type service struct {
@@ -45,12 +46,6 @@ var jwtKey = []byte(os.Getenv("SECRET"))
 type Claims struct {
 	UserID string `json:"user_id"`
 	jwt.RegisteredClaims
-}
-
-type FormSchema struct {
-	ID    string `json:"formId"`
-	Title string `json:"formTitle"`
-	Nodes []any  `json:"nodes"`
 }
 
 func (this *service) GenerateToken(userID string) (string, error) {
@@ -97,8 +92,8 @@ func (this *service) getUserById(ctx context.Context, id string) (*repo.User, er
 	return &user, err
 }
 
-func (this *service) GetUserForms(ctx context.Context, userId string) ([]FormSchema, error) {
-	var schemas []FormSchema
+func (this *service) GetFormsByUserId(ctx context.Context, userId string) ([]models.FormSchema, error) {
+	var schemas []models.FormSchema
 	userIdPg := pgtype.Text{String: userId, Valid: true}
 	forms, err := this.repo.GetFormsByUserId(ctx, userIdPg)
 	if err != nil {
@@ -106,11 +101,16 @@ func (this *service) GetUserForms(ctx context.Context, userId string) ([]FormSch
 		return schemas, err
 	}
 	for _, v := range forms {
-		schema := FormSchema{}
-		err = json.Unmarshal(v.FormSchema, &schema)
+		dbSchema := models.FormSchemaDB{}
+		err = json.Unmarshal(v.FormSchema, &dbSchema)
 		if err != nil {
 			logErr(err)
 			return schemas, err
+		}
+		schema := models.FormSchema{
+			ID: v.ID,
+			Title: dbSchema.Title,
+			Nodes: dbSchema.Nodes,
 		}
 		schemas = append(schemas, schema)
 	}
@@ -161,10 +161,11 @@ func (this *service) usernameExists(ctx context.Context, username string) (int64
 	return count, err
 }
 
-func (this *service) CreateFirstForm(ctx context.Context, userId string) ([]FormSchema, error) {
+func (this *service) CreateFirstForm(ctx context.Context, userId string) ([]models.FormSchema, error) {
 	id := uuid.New().String()
-	schema := FormSchema{ID: id, Nodes: []any{}}
-	encoded, err := json.Marshal(schema)
+	schema := models.FormSchema{ID: id, Nodes: []any{}}
+	dbSchema := models.FormSchemaDB{Nodes: []any{}}
+	encoded, err := json.Marshal(dbSchema)
 	if err != nil {
 		logErr(err)
 		return nil, err
@@ -181,7 +182,7 @@ func (this *service) CreateFirstForm(ctx context.Context, userId string) ([]Form
 		return nil, err
 	}
 	// log.Printf("First form created for new user, id = %s", id)
-	return []FormSchema{schema}, err
+	return []models.FormSchema{schema}, err
 }
 
 func logErr(err error) {

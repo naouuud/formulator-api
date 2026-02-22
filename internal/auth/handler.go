@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
+	"github.com/naouuud/formulator-api/internal/models"
 )
 
 type handler struct {
@@ -19,9 +20,9 @@ func NewHandler(service Service) *handler {
 }
 
 type AuthResp struct {
-	Auth  string       `json:"auth"`
-	Forms  []FormSchema `json:"forms"`
-	Status string       `json:"status"`
+	Auth   string              `json:"auth"`
+	Forms  []models.FormSchema `json:"forms"`
+	Status string              `json:"status"`
 }
 
 func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +30,7 @@ func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	var user *repo.User
 	var err error
 	var idStr string
-	var forms []FormSchema
+	var forms []models.FormSchema
 	var status string
 	// Validate token and check for existing user
 	// Skip if token string empty
@@ -39,7 +40,7 @@ func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 		if user != nil && err == nil {
 			idStr = user.ID
 			status = "returning"
-			forms, err = this.service.GetUserForms(r.Context(), idStr)
+			forms, err = this.service.GetFormsByUserId(r.Context(), idStr)
 			// If form fetch fails for verified user send 500, do not overwrite data
 			if err != nil {
 				httpError(w, err)
@@ -73,7 +74,7 @@ func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	}
 	// Response
 	resp := AuthResp{
-		Auth:  tokenStr,
+		Auth:   tokenStr,
 		Forms:  forms,
 		Status: status,
 	}

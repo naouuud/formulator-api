@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
 	"github.com/naouuud/formulator-api/internal/auth"
+	"github.com/naouuud/formulator-api/internal/forms"
 	"github.com/naouuud/formulator-api/internal/users"
 )
 
@@ -41,7 +42,7 @@ func (this *App) run(h http.Handler) error {
 
 func (this *App) mount() http.Handler {
 	router := chi.NewRouter()
-	
+
 	// Middlewares
 	router.Use(middleware.Logger)
 	router.Use(middleware.SetHeader("Access-Control-Allow-Origin", "http://localhost:4200"))
@@ -66,6 +67,14 @@ func (this *App) mount() http.Handler {
 		r.Get("/{id}", userHandler.GetUserById)
 		r.Post("/create", userHandler.CreateUser)
 		// r.Post("/createanon", userHandler.CreateAnonUser)
+	})
+	// Forms
+	formsHandler := forms.NewHandler(forms.NewService(repo.New(this.conn)))
+	router.Route("/form", func(r chi.Router) {
+		r.Get("/", formsHandler.CreateForm)
+		r.Post("/", formsHandler.CreateForm)
+		r.Put("/", formsHandler.UpdateFormSchema)
+		r.Delete("/", formsHandler.DeleteForm)
 	})
 	return router
 }

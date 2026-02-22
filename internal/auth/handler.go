@@ -19,9 +19,9 @@ func NewHandler(service Service) *handler {
 }
 
 type AuthResp struct {
-	Id    string       `json:"id"`
-	Token string       `json:"token"`
-	Forms []FormSchema `json:"forms"`
+	Auth  string       `json:"auth"`
+	Forms  []FormSchema `json:"forms"`
+	Status string       `json:"status"`
 }
 
 func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
@@ -30,27 +30,32 @@ func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var idStr string
 	var forms []FormSchema
+	var status string
 	// Validate token and check for existing user
+	// Skip if token string empty
 	if tokenStr != "" {
 		user, err = this.service.ValidateToken(r.Context(), tokenStr)
+		// Continue if token valid and user exists
 		if user != nil && err == nil {
 			idStr = user.ID
+			status = "returning"
 			forms, err = this.service.GetUserForms(r.Context(), idStr)
+			// If form fetch fails for verified user send 500, do not overwrite data
 			if err != nil {
 				httpError(w, err)
 				return
 			}
 		}
 	}
-	// If anything has failed (idStr still == "") create Anon user
+	// If no token, token valiation fails or user not found create Anon user and issue new token
 	if idStr == "" {
 		// Create anon user
+		status = "new"
 		idStr, err = this.service.CreateAnonUser(r.Context())
 		if err != nil {
 			httpError(w, err)
 			return
 		}
-		log.Printf("Anon user created id = %s", idStr)
 		// Create new token
 		tokenStr, err = this.service.GenerateToken(idStr)
 		if err != nil {
@@ -68,9 +73,9 @@ func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	}
 	// Response
 	resp := AuthResp{
-		Id:    idStr,
-		Token: tokenStr,
-		Forms: forms,
+		Auth:  tokenStr,
+		Forms:  forms,
+		Status: status,
 	}
 	// log.Printf("%+v", resp)
 	w.Header().Set("Content-Type", "application/json")

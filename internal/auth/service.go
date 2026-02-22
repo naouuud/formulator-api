@@ -148,6 +148,7 @@ func (this *service) CreateAnonUser(ctx context.Context) (string, error) {
 		logErr(err)
 		return "", ErrUserNotCreated
 	}
+	// log.Printf("Anon user created, id = %s", id)
 	return id, err
 }
 
@@ -179,7 +180,7 @@ func (this *service) CreateFirstForm(ctx context.Context, userId string) ([]Form
 		logErr(err)
 		return nil, err
 	}
-	log.Printf("First form created for user id = %s, form id = %s", userId, id)
+	// log.Printf("First form created for new user, id = %s", id)
 	return []FormSchema{schema}, err
 }
 

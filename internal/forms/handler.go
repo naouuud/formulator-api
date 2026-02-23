@@ -12,7 +12,11 @@ func NewHandler(service Service) *handler {
 	}
 }
 
-func (this *handler) GetFormsByUserId(w http.ResponseWriter, r *http.Request) {}
-func (this *handler) CreateForm(w http.ResponseWriter, r *http.Request) {}
-func (this *handler) DeleteForm(w http.ResponseWriter, r *http.Request) {}
+func (this *handler) GetFormsByUserId(w http.ResponseWriter, r *http.Request) {
+
+}
+func (this *handler) CreateForm(w http.ResponseWriter, r *http.Request) {
+
+}
+func (this *handler) DeleteForm(w http.ResponseWriter, r *http.Request)       {}
 func (this *handler) UpdateFormSchema(w http.ResponseWriter, r *http.Request) {}

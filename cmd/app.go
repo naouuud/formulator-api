@@ -42,6 +42,13 @@ func (this *App) run(h http.Handler) error {
 
 func (this *App) mount() http.Handler {
 	router := chi.NewRouter()
+	
+	// Initialize repo
+	repo := repo.New(this.conn)
+	// Initialize services 
+	authSvc := auth.NewService(repo)
+	userSvc := users.NewService(repo)
+	formSvc := forms.NewService(repo)
 
 	// Middlewares
 	router.Use(middleware.Logger)
@@ -54,7 +61,7 @@ func (this *App) mount() http.Handler {
 		w.Write([]byte("All good!"))
 	})
 	// Auth
-	authHandler := auth.NewHandler(auth.NewService(repo.New(this.conn)))
+	authHandler := auth.NewHandler(authSvc, userSvc, formSvc)
 	router.Route("/auth", func(r chi.Router) {
 		r.Options("/me", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
@@ -62,14 +69,14 @@ func (this *App) mount() http.Handler {
 		r.Get("/me", http.HandlerFunc(authHandler.Bootstrap))
 	})
 	// User
-	userHandler := users.NewHandler(users.NewServiceCt(repo.New(this.conn)))
+	userHandler := users.NewHandler(userSvc)
 	router.Route("/user", func(r chi.Router) {
 		r.Get("/{id}", userHandler.GetUserById)
 		r.Post("/create", userHandler.CreateUser)
 		// r.Post("/createanon", userHandler.CreateAnonUser)
 	})
 	// Forms
-	formsHandler := forms.NewHandler(forms.NewService(repo.New(this.conn)))
+	formsHandler := forms.NewHandler(formSvc)
 	router.Route("/form", func(r chi.Router) {
 		r.Get("/", formsHandler.CreateForm)
 		r.Post("/", formsHandler.CreateForm)

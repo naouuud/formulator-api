@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -13,12 +13,12 @@ import (
 
 var ErrTokenParse = errors.New("Error parsing token")
 var ErrInvalidToken = errors.New("Invalid token")
-var ErrNotFound = errors.New("User not found")
+var ErrUserNotFound = errors.New("User not found")
 var ErrUserNotCreated = errors.New("Failed to create user")
 
 type Service interface {
 	GenerateToken(userID string) (string, error)
-	ValidateToken(ctx context.Context, tokenStr string) (*Claims, error)
+	ValidateToken(ctx context.Context, tokenStr string) (string, error)
 }
 
 type service struct {
@@ -38,7 +38,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func (this *service) GenerateToken(userID string) (string, error) {
+func (s *service) GenerateToken(userID string) (string, error) {
 	claims := &Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -51,24 +51,26 @@ func (this *service) GenerateToken(userID string) (string, error) {
 	return token.SignedString(jwtKey)
 }
 
-func (this *service) ValidateToken(ctx context.Context, tokenStr string) (*Claims, error) {
+func (s *service) ValidateToken(ctx context.Context, tokenStr string) (string, error) {
+	var user repo.User
 	// Parse token
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
 	if err != nil {
-		logErr(err)
-		return nil, ErrTokenParse
+		slog.Error("Failed to parse token", "err", err)
+		return user.ID, ErrTokenParse
 	}
 	// Validate token and check claims
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
-		log.Println("Invalid token received")
-		return nil, ErrInvalidToken
+		slog.Error("Invalid token received", "err", err)
+		return user.ID, ErrInvalidToken
 	}
-	return claims, err
-}
-
-func logErr(err error) {
-	log.Printf("Auth service error: %s", err.Error())
+	// Check user exists
+	if user, err = s.repo.GetUserById(ctx, claims.UserID); err != nil {
+		slog.Error("Failed to fetch user", "err", err)
+		return user.ID, ErrUserNotFound
+	}
+	return user.ID, err
 }

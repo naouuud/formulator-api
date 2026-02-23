@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"log/slog"
 	"math/rand"
 	"strconv"
 
@@ -17,8 +18,8 @@ var ErrUserNotCreated = errors.New("Failed to create user")
 var ErrUsernameExists = errors.New("Username already exists")
 
 type Service interface {
-	GetUserById(ctx context.Context, id string) (repo.User, error)
-	CreateUser(ctx context.Context, userDto CreateUserDto) error
+	GetUserById(ctx context.Context, ID string) (repo.User, error)
+	CreateUser(ctx context.Context, params repo.CreateUserParams) (ID string, err error)
 	CreateAnonUser(ctx context.Context) (string, error)
 }
 
@@ -32,8 +33,8 @@ func NewService(repo repo.Querier) Service {
 	}
 }
 
-func (this *service) GetUserById(ctx context.Context, id string) (repo.User, error) {
-	user, err := this.repo.GetUserById(ctx, id)
+func (s *service) GetUserById(ctx context.Context, id string) (repo.User, error) {
+	user, err := s.repo.GetUserById(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			logErr(err)
@@ -45,74 +46,70 @@ func (this *service) GetUserById(ctx context.Context, id string) (repo.User, err
 	return user, err
 }
 
-func (this *service) usernameExists(ctx context.Context, username string) (int64, error) {
-	count, err := this.repo.UsernameExists(ctx, username)
+func (s *service) usernameExists(ctx context.Context, username string) (int64, error) {
+	count, err := s.repo.UsernameExists(ctx, username)
 	if err != nil {
-		logErr(err)
+		slog.Error("failed to check username", "err", err)
 		return -1, err
 	}
 	return count, err
 }
 
-func (this *service) CreateUser(ctx context.Context, userDto CreateUserDto) error {
-	count, err := this.usernameExists(ctx, userDto.Username)
+func (s *service) CreateUser(ctx context.Context, params repo.CreateUserParams) (ID string, err error) {
+	count, err := s.usernameExists(ctx, params.Username)
 	if err != nil {
-		logErr(err)
-		return err
+		return
 	}
 	if count > 0 {
-		log.Println("Account creation failed, username " + userDto.Username + " already exists")
-		return ErrUsernameExists
+		log.Println("failed to create account, username " + params.Username + " already exists")
+		err = ErrUsernameExists
+		return
 	}
-	id := uuid.New().String()
+	ID = uuid.New().String()
+	// if Role == "", = "registered"
 	userParams := repo.CreateUserParams{
-		ID:        id,
-		Username:  userDto.Username,
-		FirstName: userDto.FirstName,
-		LastName:  userDto.LastName,
+		ID:        ID,
+		Username:  params.Username,
+		FirstName: params.FirstName,
+		LastName:  params.LastName,
+		Role: 	   params.Role,
 	}
-	err = this.repo.CreateUser(ctx, userParams)
+	err = s.repo.CreateUser(ctx, userParams)
 	if err != nil {
-		logErr(err)
-		return ErrUserNotCreated
+		slog.Error("failed to create user", "err", err)
+		err = ErrUserNotCreated
+		return
 	}
-	log.Printf("User created with id = %s", id)
-	return err
+	log.Printf("user created with id = %s", ID)
+	return
 }
 
-func (this *service) CreateAnonUser(ctx context.Context) (string, error) {
-	id := uuid.New().String()
-	// Generate random int
+func (s *service) CreateAnonUser(ctx context.Context) (string, error) {
 	src := rand.NewSource(100)
 	randInt := src.Int63()
-	userParams := repo.CreateUserParams{
-		ID:        id,
+	params := repo.CreateUserParams{
 		Username:  "anon-" + strconv.FormatInt(randInt, 10),
-		FirstName: "",
-		LastName:  "",
 		Role:      "anonymous",
 	}
-	count, err := this.usernameExists(ctx, userParams.Username)
+	count, err := s.usernameExists(ctx, params.Username)
 	if err != nil {
-		logErr(err)
+		slog.Error("failed to check username", "err", err)
 		return "", err
 	}
 	for count > 0 {
 		randInt = src.Int63()
-		userParams.Username = "anon-" + strconv.FormatInt(randInt, 10)
-		count, err = this.usernameExists(ctx, userParams.Username)
+		params.Username = "anon-" + strconv.FormatInt(randInt, 10)
+		count, err = s.usernameExists(ctx, params.Username)
 		if err != nil {
-			logErr(err)
+			slog.Error("failed to check username", "err", err)
 			return "", err
 		}
 	}
-	err = this.repo.CreateUser(ctx, userParams)
+	ID, err := s.CreateUser(ctx, params)
 	if err != nil {
-		logErr(err)
-		return "", ErrUserNotCreated
+		return "", err
 	}
-	// log.Printf("Anon user created, id = %s", id)
-	return id, err
+	return ID, err
 }
 
 func logErr(err error) {

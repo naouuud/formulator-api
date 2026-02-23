@@ -2,9 +2,11 @@ package users
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
 )
 
 type handler struct {
@@ -17,9 +19,9 @@ func NewHandler(service Service) *handler {
 	}
 }
 
-func (this *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	user, err := this.service.GetUserById(r.Context(), idStr)
+	user, err := h.service.GetUserById(r.Context(), idStr)
 	if err != nil {
 		httpError(w, err)
 		return
@@ -30,38 +32,20 @@ func (this *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-type CreateUserDto struct {
-	ID        string `json:"id"`
-	Username  string `json:"username"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-}
-
-func (this *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	var dto CreateUserDto
-	err := json.NewDecoder(r.Body).Decode(&dto)
-	if err != nil {
-		logErr(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var params repo.CreateUserParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		slog.Error("failed to parse request body", "err", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
-	// log.Printf("createUserDto = %+v", dto)
-
-	err = this.service.CreateUser(r.Context(), dto)
-	if err != nil {
-		httpError(w, err)
+	if _, err := h.service.CreateUser(r.Context(), params); err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(200)
 }
-
-// func (this *handler) CreateAnonUser(w http.ResponseWriter, r *http.Request) {
-// 	err := this.service.createAnonUser(r.Context())
-// 	if err != nil {
-// 		httpError(w, err)
-// 		return
-// 	}
-// }
 
 func httpError(w http.ResponseWriter, err error) {
 	switch err {

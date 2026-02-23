@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
 	"github.com/naouuud/formulator-api/internal/forms"
 	"github.com/naouuud/formulator-api/internal/models"
 	"github.com/naouuud/formulator-api/internal/users"
@@ -26,57 +25,51 @@ func NewHandler(service Service, userSvc users.Service, formSvc forms.Service) *
 }
 
 type AuthResp struct {
+	ID     string              `json:"id"`
 	Auth   string              `json:"auth"`
 	Forms  []models.FormSchema `json:"forms"`
 	Status string              `json:"status"`
 }
 
-func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
+func (h *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	tokenStr := extractToken(r)
-	var claims *Claims
-	var user repo.User
 	var err error
-	var idStr string
-	var forms []models.FormSchema
+	var userID string
 	var status string
+	var forms []models.FormSchema
 	// Validate token and check for existing user
 	// Skip if token string empty
 	if tokenStr != "" {
-		claims, err = this.svc.ValidateToken(r.Context(), tokenStr)
-		// Continue if token valid
-		if claims.UserID != "" && err == nil {
-			user, err = this.userSvc.GetUserById(r.Context(), claims.UserID)
-			// Continue if user exists
-			if user.ID != "" && err == nil {
-				idStr = claims.UserID
-				status = "returning"
-				forms, err = this.formSvc.GetFormsByUserId(r.Context(), idStr)
-				// If form fetch fails for verified user send 500, do not overwrite data
-				if err != nil {
-					httpError(w, err)
-					return
-				}
+		userID, err = h.svc.ValidateToken(r.Context(), tokenStr)
+		// Continue if token valid & user exists
+		if userID != "" && err == nil {
+			status = "returning"
+			forms, err = h.formSvc.GetFormsByUserId(r.Context(), userID)
+			// If form fetch fails for verified user send 500, do not overwrite data
+			if err != nil {
+				httpError(w, err)
+				return
 			}
 		}
 	}
 	// If no token, token valiation fails or user not found create Anon user and issue new token
-	if idStr == "" {
+	if userID == "" {
 		// Create anon user
 		status = "new"
-		idStr, err = this.userSvc.CreateAnonUser(r.Context())
+		userID, err = h.userSvc.CreateAnonUser(r.Context())
 		if err != nil {
 			httpError(w, err)
 			return
 		}
 		// Create new token
-		tokenStr, err = this.svc.GenerateToken(idStr)
+		tokenStr, err = h.svc.GenerateToken(userID)
 		if err != nil {
 			log.Println("Failed to generate token")
 			httpError(w, err)
 			return
 		}
 		// Create first form
-		forms, err = this.formSvc.CreateEmptyFormSchemaList(r.Context(), idStr)
+		forms, err = h.formSvc.InitializeUserForms(r.Context(), userID)
 		if err != nil {
 			httpError(w, err)
 			return
@@ -85,6 +78,7 @@ func (this *handler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 	}
 	// Response
 	resp := AuthResp{
+		ID:     userID,
 		Auth:   tokenStr,
 		Forms:  forms,
 		Status: status,
@@ -115,7 +109,7 @@ func httpError(w http.ResponseWriter, err error) {
 	switch err {
 	case ErrUserNotCreated:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	case ErrNotFound:
+	case ErrUserNotFound:
 		http.Error(w, err.Error(), http.StatusNotFound)
 	default:
 		http.Error(w, "Server error", http.StatusInternalServerError)

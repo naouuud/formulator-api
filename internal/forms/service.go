@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -13,8 +14,8 @@ import (
 
 type Service interface {
 	GetFormsByUserId(ctx context.Context, userId string) ([]models.FormSchema, error)
-	CreateForm(ctx context.Context, userId string) error
-	CreateEmptyFormSchemaList(ctx context.Context, userId string) ([]models.FormSchema, error)
+	CreateForm(ctx context.Context, userId string) (string, error)
+	InitializeUserForms(ctx context.Context, userId string) ([]models.FormSchema, error)
 	DeleteForm(ctx context.Context, id string) error
 	UpdateFormSchema(ctx context.Context, id string, formSchema []byte) error
 }
@@ -29,10 +30,10 @@ func NewService(repo repo.Querier) Service {
 	}
 }
 
-func (this *service) GetFormsByUserId(ctx context.Context, userId string) ([]models.FormSchema, error) {
+func (s *service) GetFormsByUserId(ctx context.Context, userID string) ([]models.FormSchema, error) {
 	var schemas []models.FormSchema
-	userIdPg := pgtype.Text{String: userId, Valid: true}
-	forms, err := this.repo.GetFormsByUserId(ctx, userIdPg)
+	userIdPg := pgtype.Text{String: userID, Valid: true}
+	forms, err := s.repo.GetFormsByUserId(ctx, userIdPg)
 	if err != nil {
 		logErr(err)
 		return schemas, err
@@ -54,39 +55,46 @@ func (this *service) GetFormsByUserId(ctx context.Context, userId string) ([]mod
 	return schemas, err
 }
 
-func (this *service) CreateForm(ctx context.Context, userId string) error {
-	return nil
-}
-
-func (this *service) CreateEmptyFormSchemaList(ctx context.Context, userId string) ([]models.FormSchema, error) {
-	id := uuid.New().String()
-	schema := models.FormSchema{ID: id, Nodes: []any{}}
+func (s *service) CreateForm(ctx context.Context, userID string) (string, error) {
+	ID := uuid.New().String()
+	userIdPg := pgtype.Text{String: userID, Valid: true}
 	dbSchema := models.FormSchemaDB{Nodes: []any{}}
 	encoded, err := json.Marshal(dbSchema)
 	if err != nil {
 		logErr(err)
-		return nil, err
+		return "", err
 	}
-	userIdPg := pgtype.Text{String: userId, Valid: true}
 	params := repo.CreateFormParams{
-		ID:         id,
+		ID:         ID,
 		UserID:     userIdPg,
 		FormSchema: encoded,
 	}
-	err = this.repo.CreateForm(ctx, params)
+	err = s.repo.CreateForm(ctx, params)
 	if err != nil {
-		logErr(err)
-		return nil, err
+		slog.Error("Failed to create form", "err", err)
+		return "", err
 	}
-	// log.Printf("First form created for new user, id = %s", id)
+	return ID, err
+}
+
+func (s *service) InitializeUserForms(ctx context.Context, userID string) ([]models.FormSchema, error) {
+	ID, err := s.CreateForm(ctx, userID)
+	schema := models.FormSchema{
+		ID:    ID,
+		Nodes: []any{},
+	}
 	return []models.FormSchema{schema}, err
 }
 
-func (this *service) DeleteForm(ctx context.Context, id string) error {
-	return nil
+func (s *service) DeleteForm(ctx context.Context, ID string) error {
+	err := s.repo.DeleteForm(ctx, ID)
+	if (err != nil) {
+		slog.Error("delete form failed", "err", err)
+	}
+	return err
 }
 
-func (this *service) UpdateFormSchema(ctx context.Context, id string, formSchema []byte) error {
+func (s *service) UpdateFormSchema(ctx context.Context, id string, formSchema []byte) error {
 	return nil
 }
 

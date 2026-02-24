@@ -13,9 +13,9 @@ import (
 	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
 )
 
-var ErrNotFound = errors.New("User not found")
-var ErrUserNotCreated = errors.New("Failed to create user")
-var ErrUsernameExists = errors.New("Username already exists")
+var ErrUserNotFound = errors.New("user not found")
+var ErrUserNotCreated = errors.New("failed to create user")
+var ErrUsernameExists = errors.New("username already exists")
 
 type Service interface {
 	GetUserById(ctx context.Context, ID string) (repo.User, error)
@@ -37,45 +37,32 @@ func (s *service) GetUserById(ctx context.Context, id string) (repo.User, error)
 	user, err := s.repo.GetUserById(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			logErr(err)
-			return user, ErrNotFound
+			return user, ErrUserNotFound
 		}
-		logErr(err)
-		return user, err
+		slog.Error("failed to fetch user", "err", err)
 	}
 	return user, err
 }
 
-func (s *service) usernameExists(ctx context.Context, username string) (int64, error) {
-	count, err := s.repo.UsernameExists(ctx, username)
-	if err != nil {
-		slog.Error("failed to check username", "err", err)
-		return -1, err
-	}
-	return count, err
-}
-
 func (s *service) CreateUser(ctx context.Context, params repo.CreateUserParams) (ID string, err error) {
-	count, err := s.usernameExists(ctx, params.Username)
-	if err != nil {
+	var count int64
+	if count, err = s.usernameExists(ctx, params.Username); err != nil {
 		return
 	}
 	if count > 0 {
-		log.Println("failed to create account, username " + params.Username + " already exists")
+		slog.Info("failed to create account, duplicate username")
 		err = ErrUsernameExists
 		return
 	}
 	ID = uuid.New().String()
-	// if Role == "", = "registered"
 	userParams := repo.CreateUserParams{
 		ID:        ID,
 		Username:  params.Username,
 		FirstName: params.FirstName,
 		LastName:  params.LastName,
-		Role: 	   params.Role,
+		Role:      params.Role,
 	}
-	err = s.repo.CreateUser(ctx, userParams)
-	if err != nil {
+	if err = s.repo.CreateUser(ctx, userParams); err != nil {
 		slog.Error("failed to create user", "err", err)
 		err = ErrUserNotCreated
 		return
@@ -88,30 +75,27 @@ func (s *service) CreateAnonUser(ctx context.Context) (string, error) {
 	src := rand.NewSource(100)
 	randInt := src.Int63()
 	params := repo.CreateUserParams{
-		Username:  "anon-" + strconv.FormatInt(randInt, 10),
-		Role:      "anonymous",
-	}
-	count, err := s.usernameExists(ctx, params.Username)
-	if err != nil {
-		slog.Error("failed to check username", "err", err)
-		return "", err
-	}
-	for count > 0 {
-		randInt = src.Int63()
-		params.Username = "anon-" + strconv.FormatInt(randInt, 10)
-		count, err = s.usernameExists(ctx, params.Username)
-		if err != nil {
-			slog.Error("failed to check username", "err", err)
-			return "", err
-		}
+		Username: "anon-" + strconv.FormatInt(randInt, 10),
+		Role:     "anonymous",
 	}
 	ID, err := s.CreateUser(ctx, params)
-	if err != nil {
-		return "", err
+	for err != nil {
+		if errors.Is(err, ErrUsernameExists) {
+			randInt = src.Int63()
+			params.Username = "anon-" + strconv.FormatInt(randInt, 10)
+			ID, err = s.CreateUser(ctx, params)
+		} else {
+			return "", err
+		}
 	}
 	return ID, err
 }
 
-func logErr(err error) {
-	log.Printf("User service error: %s", err.Error())
+func (s *service) usernameExists(ctx context.Context, username string) (int64, error) {
+	count, err := s.repo.UsernameExists(ctx, username)
+	if err != nil {
+		slog.Error("failed to check username", "err", err)
+		return -1, err
+	}
+	return count, err
 }

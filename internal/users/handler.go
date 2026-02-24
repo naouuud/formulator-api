@@ -2,12 +2,19 @@ package users
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/naouuud/formulator-api/internal/adapters/postgres/repo"
 )
+
+type CreateUserReq struct {
+	Username  string `json:"username"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
 
 type handler struct {
 	service Service
@@ -23,7 +30,11 @@ func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	user, err := h.service.GetUserById(r.Context(), idStr)
 	if err != nil {
-		httpError(w, err)
+		if errors.Is(err, ErrUserNotFound) {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
 	// Response
@@ -34,28 +45,25 @@ func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	var params repo.CreateUserParams
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+	var body CreateUserReq
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		slog.Error("failed to parse request body", "err", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
+	params := repo.CreateUserParams{
+		Username:  body.Username,
+		FirstName: body.FirstName,
+		LastName:  body.LastName,
+		Role:      "registered",
+	}
 	if _, err := h.service.CreateUser(r.Context(), params); err != nil {
+		if errors.Is(err, ErrUsernameExists) {
+			http.Error(w, "username already exists", http.StatusConflict)
+			return
+		}
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(200)
-}
-
-func httpError(w http.ResponseWriter, err error) {
-	switch err {
-	case ErrUsernameExists:
-		http.Error(w, err.Error(), http.StatusConflict)
-	case ErrUserNotCreated:
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	case ErrNotFound:
-		http.Error(w, err.Error(), http.StatusNotFound)
-	default:
-		http.Error(w, "Server error", http.StatusInternalServerError)
-	}
 }

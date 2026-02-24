@@ -88,7 +88,7 @@ func (s *service) InitializeUserForms(ctx context.Context, userID string) ([]mod
 
 func (s *service) DeleteForm(ctx context.Context, ID string) error {
 	err := s.repo.DeleteForm(ctx, ID)
-	if (err != nil) {
+	if err != nil {
 		slog.Error("delete form failed", "err", err)
 	}
 	return err

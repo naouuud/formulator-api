@@ -48,7 +48,7 @@ func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var body CreateUserReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		slog.Error("failed to parse request body", "err", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	params := repo.CreateUserParams{

@@ -17,7 +17,7 @@ type Service interface {
 	CreateForm(ctx context.Context, userId string) (string, error)
 	InitializeUserForms(ctx context.Context, userId string) ([]models.FormSchema, error)
 	DeleteForm(ctx context.Context, id string) error
-	UpdateFormSchema(ctx context.Context, id string, formSchema []byte) error
+	UpdateFormSchema(ctx context.Context, id string, schema models.FormSchemaDB) error
 }
 
 type service struct {
@@ -58,7 +58,7 @@ func (s *service) GetFormsByUserId(ctx context.Context, userID string) ([]models
 func (s *service) CreateForm(ctx context.Context, userID string) (string, error) {
 	ID := uuid.New().String()
 	userIdPg := pgtype.Text{String: userID, Valid: true}
-	dbSchema := models.FormSchemaDB{Nodes: []any{}}
+	dbSchema := models.FormSchemaDB{Nodes: []models.Node{}}
 	encoded, err := json.Marshal(dbSchema)
 	if err != nil {
 		logErr(err)
@@ -81,7 +81,7 @@ func (s *service) InitializeUserForms(ctx context.Context, userID string) ([]mod
 	ID, err := s.CreateForm(ctx, userID)
 	schema := models.FormSchema{
 		ID:    ID,
-		Nodes: []any{},
+		Nodes: []models.Node{},
 	}
 	return []models.FormSchema{schema}, err
 }
@@ -94,7 +94,20 @@ func (s *service) DeleteForm(ctx context.Context, ID string) error {
 	return err
 }
 
-func (s *service) UpdateFormSchema(ctx context.Context, id string, formSchema []byte) error {
+func (s *service) UpdateFormSchema(ctx context.Context, id string, schema models.FormSchemaDB) error {
+	encoded, err := json.Marshal(schema); 
+	if err != nil {
+		slog.Error("failed to encode form schema", "err", err)
+		return err
+	}
+	params := repo.UpdateFormSchemaParams{
+		FormSchema: encoded,
+		ID: id,
+	}
+	if err := s.repo.UpdateFormSchema(ctx, params); err != nil {
+		slog.Error("failed to update form schema", "err", err)
+		return err
+	}
 	return nil
 }
 

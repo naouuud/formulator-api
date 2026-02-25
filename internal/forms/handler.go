@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/naouuud/formulator-api/internal/models"
 )
 
 type CreateFormRes struct {
@@ -28,7 +29,7 @@ func (h *handler) CreateForm(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("userID")
 	slog.Info("userID=", userID)
 	if userID == nil {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		http.Error(w, "forbidden resource", http.StatusForbidden)
 		return
 	}
 	userIDStr := userID.(string)
@@ -49,7 +50,7 @@ func (h *handler) DeleteForm(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("userID")
 	slog.Info("userID=", userID)
 	if userID == nil {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		http.Error(w, "forbidden resource", http.StatusForbidden)
 		return
 	}
 	// Get FormID from url
@@ -66,4 +67,20 @@ func (h *handler) DeleteForm(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *handler) UpdateFormSchema(w http.ResponseWriter, r *http.Request) {}
+func (h *handler) UpdateFormSchema(w http.ResponseWriter, r *http.Request) {
+	var body models.FormSchema
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		slog.Error("failed to parse request body", "err", err)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	dbSchema := models.FormSchemaDB{
+		Title: body.Title,
+		Nodes: body.Nodes,
+	}
+	if err := h.service.UpdateFormSchema(r.Context(), body.ID, dbSchema); err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

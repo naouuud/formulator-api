@@ -49,6 +49,8 @@ id, user_id, form_schema, created_at
 FROM forms
 WHERE 
 user_id = $1
+ORDER BY
+created_at ASC
 `
 
 func (q *Queries) GetFormsByUserId(ctx context.Context, userID pgtype.Text) ([]Form, error) {

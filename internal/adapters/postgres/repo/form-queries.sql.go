@@ -43,10 +43,32 @@ func (q *Queries) DeleteForm(ctx context.Context, id string) error {
 	return err
 }
 
+const getFormById = `-- name: GetFormById :one
+SELECT 
+id, user_id, form_schema, created_at
+FROM 
+forms
+WHERE
+id = $1
+`
+
+func (q *Queries) GetFormById(ctx context.Context, id string) (Form, error) {
+	row := q.db.QueryRow(ctx, getFormById, id)
+	var i Form
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FormSchema,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getFormsByUserId = `-- name: GetFormsByUserId :many
 SELECT 
 id, user_id, form_schema, created_at
-FROM forms
+FROM 
+forms
 WHERE 
 user_id = $1
 ORDER BY

@@ -2,7 +2,9 @@ package forms
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 	"log/slog"
 
@@ -12,12 +14,15 @@ import (
 	"github.com/naouuud/formulator-api/internal/models"
 )
 
+var ErrFormNotFound = errors.New("form not found")
+
 type Service interface {
-	GetFormsByUserId(ctx context.Context, userId string) ([]models.FormSchema, error)
-	CreateForm(ctx context.Context, userId string) (string, error)
-	InitializeUserForms(ctx context.Context, userId string) ([]models.FormSchema, error)
-	DeleteForm(ctx context.Context, id string) error
-	UpdateFormSchema(ctx context.Context, id string, schema models.FormSchemaDB) error
+	GetFormsByUserId(ctx context.Context, userID string) ([]models.FormSchema, error)
+	CreateForm(ctx context.Context, userID string) (string, error)
+	GetFormById(ctx context.Context, formID string) (repo.Form, error)
+	InitializeUserForms(ctx context.Context, userID string) ([]models.FormSchema, error)
+	DeleteForm(ctx context.Context, formID string) error
+	UpdateFormSchema(ctx context.Context, formID string, schema models.FormSchemaDB) error
 }
 
 type service struct {
@@ -52,7 +57,7 @@ func (s *service) GetFormsByUserId(ctx context.Context, userID string) ([]models
 		}
 		schemas = append(schemas, schema)
 	}
-	return schemas, err
+	return schemas, nil
 }
 
 func (s *service) CreateForm(ctx context.Context, userID string) (string, error) {
@@ -74,7 +79,18 @@ func (s *service) CreateForm(ctx context.Context, userID string) (string, error)
 		slog.Error("Failed to create form", "err", err)
 		return "", err
 	}
-	return ID, err
+	return ID, nil
+}
+
+func (s *service) GetFormById(ctx context.Context, formID string) (repo.Form, error) {
+	form, err := s.repo.GetFormById(ctx, formID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return repo.Form{}, ErrFormNotFound
+		}
+		return repo.Form{}, err
+	}
+	return form, nil
 }
 
 func (s *service) InitializeUserForms(ctx context.Context, userID string) ([]models.FormSchema, error) {
@@ -86,15 +102,16 @@ func (s *service) InitializeUserForms(ctx context.Context, userID string) ([]mod
 	return []models.FormSchema{schema}, err
 }
 
-func (s *service) DeleteForm(ctx context.Context, ID string) error {
-	err := s.repo.DeleteForm(ctx, ID)
+func (s *service) DeleteForm(ctx context.Context, formID string) error {
+	err := s.repo.DeleteForm(ctx, formID)
 	if err != nil {
 		slog.Error("delete form failed", "err", err)
+		return err
 	}
-	return err
+	return nil
 }
 
-func (s *service) UpdateFormSchema(ctx context.Context, id string, schema models.FormSchemaDB) error {
+func (s *service) UpdateFormSchema(ctx context.Context, formID string, schema models.FormSchemaDB) error {
 	encoded, err := json.Marshal(schema); 
 	if err != nil {
 		slog.Error("failed to encode form schema", "err", err)
@@ -102,7 +119,7 @@ func (s *service) UpdateFormSchema(ctx context.Context, id string, schema models
 	}
 	params := repo.UpdateFormSchemaParams{
 		FormSchema: encoded,
-		ID: id,
+		ID: formID,
 	}
 	if err := s.repo.UpdateFormSchema(ctx, params); err != nil {
 		slog.Error("failed to update form schema", "err", err)

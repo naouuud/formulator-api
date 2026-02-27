@@ -15,6 +15,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeleteForm(ctx context.Context, id string) error
 	DeleteUser(ctx context.Context, id string) error
+	GetFormById(ctx context.Context, id string) (Form, error)
 	GetFormsByUserId(ctx context.Context, userID pgtype.Text) ([]Form, error)
 	GetUserById(ctx context.Context, id string) (User, error)
 	UpdateFormSchema(ctx context.Context, arg UpdateFormSchemaParams) error
